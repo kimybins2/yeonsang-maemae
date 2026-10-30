@@ -169,7 +169,8 @@ footer p{margin:0 0 4px}
       <button class="go" id="go" type="submit">연상매매 돌리기</button>
     </div>
     <div class="chips" id="chips"><span>단골 재료</span></div>
-    <p class="hint">단골 재료는 전용 연상으로, 그 밖의 재료는 연상 사전에서 골라 이어요. 재료가 실제 종목명이면 그 종목이 '정석'이 돼요.</p>
+    <div class="chips" id="chips2"><span>이런 것도</span></div>
+    <p class="hint" id="hint">단어 120여 개짜리 연상 지도에서 입력 속 아는 단어를 찾아 출발해요. 같은 재료도 "다른 연상으로 다시"를 누르면 다른 길로 가요. 재료가 실제 종목명이면 그 종목이 '정석'이 돼요.</p>
   </form>
 
   <section class="report" id="report" aria-live="polite"></section>
@@ -181,6 +182,7 @@ footer p{margin:0 0 4px}
   </footer>
 </div>
 
+<script src="assoc.js"></script>
 <script>
 (function(){
 // ===== 연상 사전 =====
@@ -196,14 +198,6 @@ const PRESETS = {
   "장마 시작": {origin:null,steps:[["장마 시작","기상청 발표"],["집콕","비 오니까 안 나감"],["배달 폭주","나가기 싫으니까"],["파전에 막걸리","비 오는 날 공식"],["막걸리","파전엔 막걸리"]],sector:"주류 관련주",pick:"하이트진로",leap:68,comment:"이번엔 너무 말이 돼서 애널리스트 본인도 당황했습니다."}
 };
 
-const GENERIC = [
-  {steps:[["직원들 회식","기분 좋으면 모인다"],["다음날 숙취","회식의 대가"],["해장국","숙취엔 국물"],["콩나물","해장국의 핵심"]],sector:"종자 관련주",pick:"농우바이오",leap:84,comment:"모든 재료는 결국 콩나물로 수렴합니다. 이것이 국장의 대통일 이론."},
-  {steps:[["다들 폰 봄","뉴스 확인하느라"],["거북목","하루 종일 고개 숙임"],["어깨 결림","목이 가면 어깨도 감"],["파스","붙이면 시원"]],sector:"파스 관련주",pick:"신신제약",leap:79,comment:"뉴스를 많이 읽을수록 어깨가 아픕니다. 정보 비대칭이 아니라 척추 비대칭."},
-  {steps:[["단톡방 난리","다들 한마디씩"],["치킨 주문","축하엔 치킨"],["치킨무","치킨엔 무"],["무","무는 채소"],["김장","무 하면 김장"]],sector:"식품 관련주",pick:"대상",leap:90,comment:"단톡방이 시끄러우면 무가 팔리고, 무가 팔리면 김장이 시작됩니다."},
-  {steps:[["보너스 기대","좋은 일엔 보너스"],["골프 라운딩","보너스 받으면 필드로"],["햇볕에 탐","그늘 없는 18홀"],["선크림","내일도 나가야 하니까"]],sector:"화장품 관련주",pick:"아모레퍼시픽",leap:76,comment:"인생사와 자외선 지수의 상관관계를 최초로 발견했습니다. 논문은 안 씁니다."},
-  {steps:[["대청소 결심","기분 전환엔 청소"],["먼지 날림","청소하면 먼지"],["재채기","에취"],["휴지","코 풀어야 함"]],sector:"제지 관련주",pick:"깨끗한나라",leap:88,comment:"재료의 유통기한은 짧지만 휴지는 꾸준합니다. 장기 투자 관점 권장(농담)."},
-  {steps:[["밤새 검색","이게 뭔데?"],["눈이 침침","블루라이트 과다"],["렌즈 끼고 출근","안경 찾기 귀찮음"]],sector:"콘택트렌즈 관련주",pick:"인터로조",leap:81,comment:"모든 정보는 시력을 갉아먹습니다. 리포트를 읽는 지금 이 순간에도."}
-];
 
 const TAPE = [["콩나물 관련주","▲ 404%","u"],["치킨무 ETF","▲ 12.3%","u"],["새벽닭 지수","▼ 꼬끼오","d"],["눈치 지수","▲ 0.01%","u"],["개미 멘탈","▼ 38.2%","d"],["감자칩 반도체","▲ 칩칩","u"],["내 계좌","▼ 언급 불가","d"],["존버 지수","▲ ∞","u"]];
 
@@ -220,11 +214,12 @@ const STAMPS = ["강력 매수(아마도)","적극 매수?","일단 담아봄","
 const TARGETS = ["꿈","달나라","∞원","행복","네 마음"];
 
 const isPreset = q => Object.keys(PRESETS).some(k => norm(k) === norm(q));
-function lookup(q, v = 0){
+function lookup(q, v = 0, avoid = null){
   const key = Object.keys(PRESETS).find(k => norm(k) === norm(q));
-  if (key) { const p = PRESETS[key]; return {...p, steps:p.steps.map(s=>[...s])}; }
-  const g = GENERIC[(hash(q) + v) % GENERIC.length];
-  return {...g, origin:null, steps:[[q,"오늘의 재료"], ...g.steps.map(s=>[...s])]};
+  if (key && v === 0) { const p = PRESETS[key]; return {...p, steps:p.steps.map(s=>[...s])}; }
+  const r = window.YS_ASSOC.walk(q, v, avoid || (key ? PRESETS[key].origin : null));
+  if (key) r.origin = PRESETS[key].origin;
+  return r;
 }
 
 // ===== 상태 =====
@@ -262,7 +257,7 @@ function renderReport(r, animate){
       <p class="comment">${esc(r.comment)}</p>
       <div class="actions">
         <button class="ghost" type="button" id="copy">결과 복사해서 단톡방에 뿌리기</button>
-        ${isPreset(r.steps[0][0]) ? "" : `<button class="ghost" type="button" id="again">다른 연상으로 다시</button>`}
+        <button class="ghost" type="button" id="again">다른 연상으로 다시</button>
         <span class="toast" id="toast"></span>
       </div>
     </div>`;
@@ -302,8 +297,8 @@ async function run(raw, another){
     const hit = await fetchStock(q, {exact:true}).catch(() => null);
     if (hit) {
       originData = hit; r.origin = hit.name;
-      let k = 0;
-      while (r.pick && norm(r.pick) === norm(hit.name) && k++ < GENERIC.length) r = {...lookup(q, ++variant), origin: hit.name};
+      if (r.pick && norm(r.pick) === norm(hit.name)) r = lookup(q, variant, hit.name);
+      r.origin = hit.name;
     }
   }
   busy = false; $("#go").disabled = false;
@@ -491,11 +486,14 @@ function bindCtrl(){
 $("#tape").innerHTML = [...TAPE, ...TAPE].map(([n,v,c]) => `<span>${esc(n)} <b class="${c}">${esc(v)}</b></span>`).join("");
 const d = new Date();
 $("#today").textContent = `연상매매 리서치센터 · ${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} 데일리`;
-Object.keys(PRESETS).forEach(k => {
+const addChips = (box, list) => list.forEach(k => {
   const b = document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=k;
   b.addEventListener("click", () => { $("#q").value = k; run(k, false); });
-  $("#chips").appendChild(b);
+  $(box).appendChild(b);
 });
+addChips("#chips", Object.keys(PRESETS));
+addChips("#chips2", ["월요병","첫눈 옴","로또 당첨","주식 물림","소개팅","택배 왔다","감기 걸림","강아지 입양"]);
+$("#hint").textContent = `단어 ${window.YS_ASSOC.size}개짜리 연상 지도에서 입력 속 아는 단어를 찾아 출발해요. 같은 재료도 "다른 연상으로 다시"를 누르면 다른 길로 가요. 재료가 실제 종목명이면 그 종목이 '정석'이 돼요.`;
 $("#form").addEventListener("submit", e => { e.preventDefault(); run($("#q").value, false); });
 const first = lookup("하림");
 renderReport(first, false);

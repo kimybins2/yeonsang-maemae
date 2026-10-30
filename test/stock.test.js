@@ -11,7 +11,7 @@ function fakeXml(n, start = 10000) {
     const c = start + i * 100;
     items.push(`<item data="${ds}|${c}|${c + 50}|${c - 50}|${c}|12345" />`);
   }
-  return `<?xml version="1.0" encoding="EUC-KR" ?><protocol><chartdata symbol="X" name="X">${items.join("")}</chartdata></protocol>`;
+  return `<?xml version="1.0" encoding="EUC-KR" ?><protocol><chartdata symbol="X">${items.join("")}</chartdata></protocol>`;
 }
 
 const calls = [];
@@ -43,6 +43,9 @@ assert.equal(parseSeries(fakeXml(3)).length, 3);
 assert.deepEqual(parseSeries(fakeXml(1))[0], { d: "20210101", c: 10000 });
 assert.equal(parseSearch(JSON.stringify({ items: [[[["NAVER"], ["035420"]]]] }))[0].code, "035420");
 assert.equal(parseSearch(JSON.stringify({ result: { items: [{ code: "005930", name: "삼성전자", nationCode: "KOR" }] } }))[0].name, "삼성전자");
+
+// 차트 이름 읽기
+assert.equal((await import("../api/stock.js")).parseChartName('<chartdata symbol="005930" name="삼성전자" count="2">'), "삼성전자");
 
 // 미리 아는 종목은 검색 없이 바로
 let r = await call("/api/stock?q=" + encodeURIComponent("하림"));

@@ -8,6 +8,6 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node test/stock.test.js"
+    "test": "node test/stock.test.js && node test/assoc.test.js"
   }
 }
