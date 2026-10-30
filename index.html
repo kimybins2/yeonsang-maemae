@@ -1,0 +1,506 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>연상매매</title>
+<meta name="description" content="국장은 예측 불가. 그래서 아무 말 연상으로 종목을 추천하고, 그때 샀으면 얼마 벌었을지 실제 시세로 계산해 드립니다.">
+<meta property="og:title" content="연상매매">
+<meta property="og:description" content="하림 호재에 커피주를 사는 사람들을 위한 리서치센터">
+<meta name="theme-color" content="#e0313b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: 증권사 리포트 패러디 — 시세 띠, 입력, 연상 사슬, 투자의견, 실제 시세, 그때 샀더라면 */
+:root{
+  --bg:#f3f4f7; --paper:#ffffff; --ink:#15171c; --muted:#646a78; --line:#dde0e7;
+  --up:#e0313b; --up-soft:#fde8e9; --down:#2457d6; --down-soft:#e7edfc; --flat:#8a90a0;
+  --display:"Black Han Sans","IBM Plex Sans KR",system-ui,sans-serif;
+  --body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0f1116; --paper:#181b22; --ink:#eef0f4; --muted:#9aa1b0; --line:#2a2f3a;
+  --up:#ff5b63; --up-soft:#3a1c20; --down:#6f95ff; --down-soft:#1a2440; --flat:#7c8394; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1116; --paper:#181b22; --ink:#eef0f4; --muted:#9aa1b0; --line:#2a2f3a;
+  --up:#ff5b63; --up-soft:#3a1c20; --down:#6f95ff; --down-soft:#1a2440; --flat:#7c8394; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px;display:flex;flex-direction:column;gap:20px}
+
+.tape{background:var(--ink);color:var(--paper);overflow:hidden;white-space:nowrap;font-family:var(--mono);font-size:13px}
+.tape-inner{display:inline-flex;gap:32px;padding-block:8px;animation:tape 40s linear infinite;padding-left:16px}
+.tape b{font-weight:600}
+.u{color:var(--up)} .d{color:var(--down)} .f{color:var(--flat)}
+@keyframes tape{to{transform:translateX(-50%)}}
+
+header{display:flex;flex-direction:column;gap:6px;padding-top:8px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--muted)}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(44px,11vw,72px);line-height:1;margin:0}
+h1 em{font-style:normal;color:var(--up)}
+.lede{margin:4px 0 0;color:var(--muted);max-width:56ch;text-wrap:pretty}
+
+.panel,.report,.sec{background:var(--paper);border:1px solid var(--line);border-radius:6px}
+.panel{padding:20px;display:flex;flex-direction:column;gap:14px}
+label{font-weight:700;font-size:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text],input[type=number]{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:4px}
+#q{flex:1 1 240px;min-width:0;font-size:17px;padding:12px 14px}
+input:focus{outline:none;border-color:var(--up)}
+button{font:inherit;cursor:pointer}
+.go{background:var(--up);color:#fff;border:0;border-radius:4px;padding:12px 20px;font-weight:700;font-size:16px;white-space:nowrap}
+.go:hover{filter:brightness(1.08)}
+.go:disabled{opacity:.6;cursor:wait}
+:focus-visible{outline:2px solid var(--down);outline-offset:2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{font-size:12px;color:var(--muted);align-self:center;margin-right:2px}
+.chip{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:999px;padding:4px 12px;font-size:13px}
+.chip:hover{border-color:var(--up);color:var(--up)}
+.hint{font-size:12px;color:var(--muted);margin:0}
+
+.report{overflow:hidden}
+.rhead,.shead{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding:14px 20px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--muted)}
+.rhead strong,.shead strong{color:var(--ink);font-family:var(--body);font-size:15px}
+.chain{list-style:none;margin:0;padding:24px 20px 8px;display:flex;flex-direction:column}
+.step{display:grid;grid-template-columns:36px 1fr;column-gap:14px;min-width:0}
+.dot{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:13px;font-weight:600;background:var(--bg);border:1.5px solid var(--line);color:var(--muted)}
+.step:first-child .dot{background:var(--down-soft);border-color:var(--down);color:var(--down)}
+.step.last .dot{background:var(--up);border-color:var(--up);color:#fff}
+.item{font-size:20px;font-weight:700;align-self:center;min-width:0;overflow-wrap:anywhere}
+.item small{display:block;font-size:12px;font-weight:500;color:var(--down)}
+.link{grid-column:1/-1;display:grid;grid-template-columns:36px 1fr;column-gap:14px;min-height:44px}
+.link i{justify-self:center;width:2px;background:repeating-linear-gradient(var(--line) 0 5px,transparent 5px 9px)}
+.link p{margin:0;align-self:center;font-size:13px;color:var(--muted);padding-block:6px}
+.link p::before{content:"↳ ";color:var(--up)}
+.new{animation:pop .45s ease both}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}}
+
+.verdict{margin:16px 20px 20px;border:2px solid var(--up);border-radius:6px;padding:18px;display:flex;flex-direction:column;gap:14px;background:var(--up-soft)}
+.vtop{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+.vlabel{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--up)}
+.sector{font-family:var(--display);font-size:clamp(30px,8vw,44px);line-height:1.1;margin:2px 0 0;font-weight:400;text-wrap:balance}
+.pickname{font-size:14px;margin-top:4px}
+.pickname b{font-weight:700}
+.stamp{border:2px solid var(--up);color:var(--up);font-weight:700;padding:4px 10px;border-radius:4px;transform:rotate(-4deg);font-size:14px;white-space:nowrap;background:var(--paper)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:0}
+.stat{background:var(--paper);border-radius:4px;padding:10px 12px;min-width:0}
+.stat dt{font-size:11px;color:var(--muted)}
+.stat dd{margin:0;font-family:var(--mono);font-weight:600;font-size:18px;font-variant-numeric:tabular-nums}
+.bar{height:4px;background:var(--line);border-radius:2px;margin-top:6px;overflow:hidden}
+.bar b{display:block;height:100%;background:var(--up)}
+.comment{margin:0;text-wrap:pretty}
+.comment::before{content:"애널리스트 코멘트 · ";font-weight:700}
+.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ghost{background:var(--paper);border:1px solid var(--line);color:var(--ink);border-radius:4px;padding:8px 14px;font-size:14px}
+.ghost:hover{border-color:var(--ink)}
+.ghost.primary{border-color:var(--up);color:var(--up);font-weight:700}
+.toast{font-size:13px;color:var(--muted)}
+.loading{padding:40px 20px;text-align:center;color:var(--muted)}
+.loading b{display:block;font-family:var(--display);font-weight:400;font-size:24px;color:var(--ink);margin-bottom:4px}
+
+/* 시세 */
+.sbody{padding:20px;display:flex;flex-direction:column;gap:16px}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.card{border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.card .role{font-size:11px;font-weight:700;letter-spacing:.06em;color:var(--muted)}
+.card.pick .role{color:var(--up)}
+.card h3{margin:0;font-size:18px;overflow-wrap:anywhere}
+.card .code{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.price{font-family:var(--mono);font-size:24px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2;margin-top:4px}
+.chg{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.spark{width:100%;height:44px;margin-top:6px;display:block}
+.card .note{font-size:13px;color:var(--muted)}
+.card.empty{justify-content:center;background:var(--bg);border-style:dashed}
+.notice{background:var(--bg);border-radius:6px;padding:14px 16px;font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.notice strong{color:var(--ink)}
+
+/* 백테스트 */
+.controls{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{background:var(--paper);border:0;padding:7px 14px;font-size:14px;color:var(--ink)}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.amt{display:flex;align-items:center;gap:6px;font-size:14px}
+.amt input{width:90px;padding:6px 8px;font-family:var(--mono);text-align:right}
+.tbl-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:460px}
+th{font-size:11px;color:var(--muted);font-weight:500;text-align:right;padding:6px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td:first-child{font-family:var(--body);font-weight:700}
+td .sw{display:inline-block;width:10px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.big{font-size:16px;font-weight:600}
+.chart{width:100%;height:auto;display:block}
+.chart text{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+.punch{margin:0;font-size:17px;font-weight:700;text-wrap:balance}
+.punch .u,.punch .d{font-family:var(--mono)}
+.fine{font-size:12px;color:var(--muted);margin:0}
+
+footer{font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:14px}
+footer p{margin:0 0 4px}
+
+@media (max-width:520px){
+  .cards{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr 1fr}
+  .stats .stat:last-child{grid-column:1/-1}
+  .item{font-size:18px}
+}
+@media (prefers-reduced-motion:reduce){ .tape-inner,.new{animation:none} }
+</style>
+</head>
+<body>
+
+<div class="tape" aria-hidden="true"><div class="tape-inner" id="tape"></div></div>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="today">연상매매 리서치센터</div>
+    <h1>연상<em>매매</em></h1>
+    <p class="lede">국장은 예측할 수 없습니다. 그래서 예측을 포기했습니다. 회사 이름이든 뉴스든 오늘 날씨든 아무거나 넣으면, 아무 말 대잔치로 이어지는 엉뚱한 종목을 추천하고 그때 샀으면 얼마 벌었을지까지 계산해 드립니다.</p>
+  </header>
+
+  <form class="panel" id="form" autocomplete="off">
+    <label for="q">무슨 일이 있었나요?</label>
+    <div class="row">
+      <input type="text" id="q" maxlength="60" placeholder="예: 하림, 삼성전자 신고가, 장마 시작, 월요병" value="하림">
+      <button class="go" id="go" type="submit">연상매매 돌리기</button>
+    </div>
+    <div class="chips" id="chips"><span>단골 재료</span></div>
+    <p class="hint">단골 재료는 전용 연상으로, 그 밖의 재료는 연상 사전에서 골라 이어요. 재료가 실제 종목명이면 그 종목이 '정석'이 돼요.</p>
+  </form>
+
+  <section class="report" id="report" aria-live="polite"></section>
+  <section class="sec" id="market" aria-live="polite"></section>
+
+  <footer>
+    <p>본 리포트는 농담입니다. 투자 권유가 아니며, 이대로 사면 정말로 물릴 수 있습니다.</p>
+    <p>시세 출처는 네이버 금융이며 몇 분 늦을 수 있습니다. 수익률은 배당과 수수료·세금을 뺀 단순 종가 기준이고, 과거 수익률은 미래를 보장하지 않습니다.</p>
+  </footer>
+</div>
+
+<script>
+(function(){
+// ===== 연상 사전 =====
+// origin: 입력과 바로 연결되는 실제 종목(없으면 null), pick: 마지막에 추천하는 실제 상장사
+const PRESETS = {
+  "하림": {origin:"하림",steps:[["하림","닭고기 회사"],["닭","하림은 결국 닭"],["새벽 꼬끼오","닭은 새벽에 운다"],["온 동네 수면 부족","다들 새벽 5시에 깸"],["출근길 아메리카노","잠 깬 김에 커피 수혈"]],sector:"커피 관련주",pick:"동서",leap:91,comment:"닭이 울면 커피가 팔린다. 양계장 주변 카페 매출은 아무도 조사하지 않았기에 반박도 불가능합니다."},
+  "삼성전자": {origin:"삼성전자",steps:[["삼성전자","반도체 대장"],["칩","반도체 = 칩"],["감자칩","칩은 칩"],["칩맥","감자칩엔 맥주"],["맥주 수요 폭발","전 국민 칩맥 타임"]],sector:"주류 관련주",pick:"하이트진로",leap:88,comment:"메모리 사이클과 맥주 사이클은 둘 다 사이클입니다. 이 이상의 근거는 제시하지 않겠습니다."},
+  "현대차": {origin:"현대차",steps:[["현대차","신차 대박"],["도로에 차 늘어남","다들 새 차 뽑음"],["빵빵","막히면 경적"],["빵","빵빵은 빵 두 개"],["밀가루","빵의 원료"]],sector:"제분 관련주",pick:"대한제분",leap:94,comment:"경적 한 번에 빵 두 개. 교통체증이 심할수록 밀가루가 웃습니다."},
+  "카카오": {origin:"카카오",steps:[["카카오","국민 메신저"],["카카오 열매","이름이 그러니까"],["초콜릿","카카오로 만듦"],["단 거 폭식","초콜릿은 멈출 수 없음"],["충치","양치 까먹음"],["치과 예약","결국 가야 함"]],sector:"임플란트 관련주",pick:"덴티움",leap:95,comment:"메신저 알림이 울릴 때마다 어딘가에서 이가 썩고 있습니다."},
+  "농심": {origin:"농심",steps:[["농심","라면 강자"],["야식 라면","라면은 밤에 먹어야 제맛"],["아침 퉁퉁 부은 얼굴","밤 라면의 대가"],["붓기 빼는 호박즙","거울 보고 반성"]],sector:"건강기능식품 관련주",pick:"콜마비앤에이치",leap:72,comment:"라면이 팔릴수록 붓기도 팔립니다. 비교적 논리적이라 오히려 불안한 종목입니다."},
+  "금리 인하": {origin:null,steps:[["금리 인하","한은 발표"],["예금 이자 줄어듦","통장이 슬퍼함"],["울적한 마음","이자 보고 한숨"],["코인노래방","한 곡 뽑고 털어버리기"],["목이 쉼","세 시간 연속 발라드"],["목캔디","목엔 사탕"]],sector:"제과 관련주",pick:"롯데웰푸드",leap:89,comment:"통화정책의 최종 전달 경로는 성대입니다. 경제학 교과서가 아직 못 따라온 부분."},
+  "비트코인": {origin:null,steps:[["비트코인","코인 신고가"],["코인","비트코인도 코인"],["코인 세탁방","코인 하면 빨래방"],["세제","빨래엔 세제"]],sector:"생활용품 관련주",pick:"LG생활건강",leap:93,comment:"디지털 자산의 종착지는 결국 섬유유연제 향기입니다. 탈중앙화의 역설."},
+  "장마 시작": {origin:null,steps:[["장마 시작","기상청 발표"],["집콕","비 오니까 안 나감"],["배달 폭주","나가기 싫으니까"],["파전에 막걸리","비 오는 날 공식"],["막걸리","파전엔 막걸리"]],sector:"주류 관련주",pick:"하이트진로",leap:68,comment:"이번엔 너무 말이 돼서 애널리스트 본인도 당황했습니다."}
+};
+
+const GENERIC = [
+  {steps:[["직원들 회식","기분 좋으면 모인다"],["다음날 숙취","회식의 대가"],["해장국","숙취엔 국물"],["콩나물","해장국의 핵심"]],sector:"종자 관련주",pick:"농우바이오",leap:84,comment:"모든 재료는 결국 콩나물로 수렴합니다. 이것이 국장의 대통일 이론."},
+  {steps:[["다들 폰 봄","뉴스 확인하느라"],["거북목","하루 종일 고개 숙임"],["어깨 결림","목이 가면 어깨도 감"],["파스","붙이면 시원"]],sector:"파스 관련주",pick:"신신제약",leap:79,comment:"뉴스를 많이 읽을수록 어깨가 아픕니다. 정보 비대칭이 아니라 척추 비대칭."},
+  {steps:[["단톡방 난리","다들 한마디씩"],["치킨 주문","축하엔 치킨"],["치킨무","치킨엔 무"],["무","무는 채소"],["김장","무 하면 김장"]],sector:"식품 관련주",pick:"대상",leap:90,comment:"단톡방이 시끄러우면 무가 팔리고, 무가 팔리면 김장이 시작됩니다."},
+  {steps:[["보너스 기대","좋은 일엔 보너스"],["골프 라운딩","보너스 받으면 필드로"],["햇볕에 탐","그늘 없는 18홀"],["선크림","내일도 나가야 하니까"]],sector:"화장품 관련주",pick:"아모레퍼시픽",leap:76,comment:"인생사와 자외선 지수의 상관관계를 최초로 발견했습니다. 논문은 안 씁니다."},
+  {steps:[["대청소 결심","기분 전환엔 청소"],["먼지 날림","청소하면 먼지"],["재채기","에취"],["휴지","코 풀어야 함"]],sector:"제지 관련주",pick:"깨끗한나라",leap:88,comment:"재료의 유통기한은 짧지만 휴지는 꾸준합니다. 장기 투자 관점 권장(농담)."},
+  {steps:[["밤새 검색","이게 뭔데?"],["눈이 침침","블루라이트 과다"],["렌즈 끼고 출근","안경 찾기 귀찮음"]],sector:"콘택트렌즈 관련주",pick:"인터로조",leap:81,comment:"모든 정보는 시력을 갉아먹습니다. 리포트를 읽는 지금 이 순간에도."}
+];
+
+const TAPE = [["콩나물 관련주","▲ 404%","u"],["치킨무 ETF","▲ 12.3%","u"],["새벽닭 지수","▼ 꼬끼오","d"],["눈치 지수","▲ 0.01%","u"],["개미 멘탈","▼ 38.2%","d"],["감자칩 반도체","▲ 칩칩","u"],["내 계좌","▼ 언급 불가","d"],["존버 지수","▲ ∞","u"]];
+
+// ===== 유틸 =====
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hash = s => { let h=0; for (const c of s) h=(h*31 + c.codePointAt(0))>>>0; return h; };
+const norm = s => s.replace(/\s/g,"").toLowerCase();
+const won = n => Math.round(n).toLocaleString("ko-KR");
+const pct = n => (n>=0?"+":"") + (n*100).toFixed(1) + "%";
+const cls = n => n>0.0005 ? "u" : n<-0.0005 ? "d" : "f";
+const arrow = n => n>0.0005 ? "▲" : n<-0.0005 ? "▼" : "-";
+const STAMPS = ["강력 매수(아마도)","적극 매수?","일단 담아봄","눈 감고 매수","매수(책임 안 짐)"];
+const TARGETS = ["꿈","달나라","∞원","행복","네 마음"];
+
+const isPreset = q => Object.keys(PRESETS).some(k => norm(k) === norm(q));
+function lookup(q, v = 0){
+  const key = Object.keys(PRESETS).find(k => norm(k) === norm(q));
+  if (key) { const p = PRESETS[key]; return {...p, steps:p.steps.map(s=>[...s])}; }
+  const g = GENERIC[(hash(q) + v) % GENERIC.length];
+  return {...g, origin:null, steps:[[q,"오늘의 재료"], ...g.steps.map(s=>[...s])]};
+}
+
+// ===== 상태 =====
+let current = null, reportNo = 1, years = 3, amount = 100;
+let market = {origin:null, pick:null, index:null};   // {status, data, error}
+let marketReq = 0;
+
+// ===== 리포트 렌더 =====
+function renderReport(r, animate){
+  current = r;
+  const h = hash(r.steps[0][0] + r.sector);
+  const conf = 1 + (h % 7);
+  const n = r.steps.length;
+  const items = r.steps.map(([item, why], i) => {
+    const link = i === 0 ? "" : `<div class="link"><i></i><p>${esc(why)}</p></div>`;
+    const sub = i === 0 ? `<small>출발 재료 · ${esc(why)}</small>` : "";
+    const delay = animate ? ` style="animation-delay:${i*0.2}s"` : "";
+    return `<li class="step${i===n-1?" last":""}${animate?" new":""}"${delay}>${link}<span class="dot">${String(i+1).padStart(2,"0")}</span><span class="item">${sub}${esc(item)}</span></li>`;
+  }).join("");
+  const vdelay = animate ? ` style="animation-delay:${n*0.2}s"` : "";
+  $("#report").innerHTML = `
+    <div class="rhead"><strong>${esc(r.steps[0][0])} 연상 분석</strong><span>REPORT No.${String(reportNo).padStart(3,"0")} · 연상 ${n-1}단계</span></div>
+    <ol class="chain">${items}</ol>
+    <div class="verdict${animate?" new":""}"${vdelay}>
+      <div class="vtop">
+        <div><div class="vlabel">그래서 사야 할 것은</div><p class="sector">${esc(r.sector)}</p>
+        ${r.pick ? `<div class="pickname">대표 종목 <b>${esc(r.pick)}</b></div>` : ""}</div>
+        <span class="stamp">${esc(STAMPS[h % STAMPS.length])}</span>
+      </div>
+      <dl class="stats">
+        <div class="stat"><dt>논리 비약 지수</dt><dd>${r.leap}%</dd><div class="bar"><b style="width:${r.leap}%"></b></div></div>
+        <div class="stat"><dt>애널리스트 확신도</dt><dd>${conf}%</dd><div class="bar"><b style="width:${conf}%"></b></div></div>
+        <div class="stat"><dt>목표 주가</dt><dd>${esc(TARGETS[(h>>3) % TARGETS.length])}</dd></div>
+      </dl>
+      <p class="comment">${esc(r.comment)}</p>
+      <div class="actions">
+        <button class="ghost" type="button" id="copy">결과 복사해서 단톡방에 뿌리기</button>
+        ${isPreset(r.steps[0][0]) ? "" : `<button class="ghost" type="button" id="again">다른 연상으로 다시</button>`}
+        <span class="toast" id="toast"></span>
+      </div>
+    </div>`;
+  $("#copy").addEventListener("click", copyResult);
+  const ag = $("#again"); if (ag) ag.addEventListener("click", () => run(r.steps[0][0], true));
+}
+
+async function copyResult(){
+  const r = current; if (!r) return;
+  const bt = summaryForCopy();
+  const text = `[연상매매 리포트]\n${r.steps.map(s=>s[0]).join(" → ")} → ${r.sector}${r.pick?` (${r.pick})`:""}\n논리 비약 지수 ${r.leap}%${bt}\n"${r.comment}"\n※ 농담입니다. 투자 권유 아님.`;
+  const t = $("#toast");
+  try { await navigator.clipboard.writeText(text); t.textContent = "복사했어요."; }
+  catch(e){
+    const ta = document.createElement("textarea"); ta.value = text; ta.style.position="fixed"; ta.style.opacity="0";
+    document.body.appendChild(ta); ta.select();
+    let ok=false; try{ ok = document.execCommand("copy"); }catch(_){}
+    ta.remove(); t.textContent = ok ? "복사했어요." : "복사가 막혀 있어요. 화면을 캡처해 주세요.";
+  }
+}
+
+// ===== 실행 =====
+let variant = 0, lastQ = "";
+let busy = false;
+async function run(raw, another){
+  const q = raw.trim().slice(0,60);
+  if (!q || busy) return;
+  busy = true; $("#go").disabled = true;
+  reportNo++;
+  variant = (another && norm(q) === norm(lastQ)) ? variant + 1 : 0;
+  lastQ = q;
+  const preset = isPreset(q);
+  let r = lookup(q, variant);
+  let originData = null;
+  if (!preset) {
+    // 자유 입력이 실제 종목명이면 그 종목을 '정석'으로
+    const hit = await fetchStock(q, {exact:true}).catch(() => null);
+    if (hit) {
+      originData = hit; r.origin = hit.name;
+      let k = 0;
+      while (r.pick && norm(r.pick) === norm(hit.name) && k++ < GENERIC.length) r = {...lookup(q, ++variant), origin: hit.name};
+    }
+  }
+  busy = false; $("#go").disabled = false;
+  renderReport(r, true);
+  loadMarket(r, originData);
+}
+
+// ===== 시세: 우리 서버(/api/stock)가 네이버 금융에서 대신 가져옴 =====
+async function fetchStock(q, {exact=false, index=false} = {}){
+  const p = new URLSearchParams({q});
+  if (exact) p.set("exact","1");
+  if (index) p.set("index","1");
+  let res;
+  try { res = await fetch("/api/stock?" + p.toString()); }
+  catch(e){ throw {code:"network"}; }
+  let body = null; try { body = await res.json(); } catch(_){}
+  if (res.status === 404) { if (exact) return null; throw {code:"not_found"}; }
+  if (!res.ok || !body) throw {code: body?.error || "upstream"};
+  return body;
+}
+
+async function loadMarket(r, originData){
+  const req = ++marketReq;
+  market = {
+    origin: r.origin ? (originData ? {status:"ok", data:originData} : {status:"loading"}) : null,
+    pick: r.pick ? {status:"loading"} : null,
+    index: {status:"loading"}
+  };
+  renderMarket(r);
+  const jobs = [];
+  if (r.origin && !originData) jobs.push(["origin", () => fetchStock(r.origin)]);
+  if (r.pick) jobs.push(["pick", () => fetchStock(r.pick)]);
+  jobs.push(["index", () => fetchStock("KOSPI", {index:true})]);
+  await Promise.all(jobs.map(async ([k, fn]) => {
+    let slot;
+    try { slot = {status:"ok", data: await fn()}; } catch(e){ slot = {status:"error", error:e}; }
+    if (req !== marketReq) return;
+    market[k] = slot; renderMarket(r);
+  }));
+}
+
+function errCopy(e){
+  const c = e && e.code;
+  if (c === "not_found") return "이 이름의 상장 종목을 찾지 못했어요.";
+  if (c === "network") return "서버에 연결하지 못했어요. 인터넷 연결을 확인해 주세요.";
+  return "시세를 가져오지 못했어요. 잠시 후 다시 시도해 주세요.";
+}
+
+function sparkSVG(pts){
+  if (!pts || pts.length < 2) return "";
+  const W=200, H=44, ys = pts.map(p=>p.c), mn=Math.min(...ys), mx=Math.max(...ys), rg = mx-mn || 1;
+  const xy = pts.map((p,i)=>[i/(pts.length-1)*W, H-3-(p.c-mn)/rg*(H-6)]);
+  const up = ys[ys.length-1] >= ys[0];
+  const col = up ? "var(--up)" : "var(--down)";
+  const line = xy.map(([x,y],i)=>(i?"L":"M")+x.toFixed(1)+" "+y.toFixed(1)).join("");
+  const last = xy[xy.length-1];
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><path d="${line}L${W} ${H}L0 ${H}Z" fill="${col}" fill-opacity=".1"/><path d="${line}" fill="none" stroke="${col}" stroke-width="1.6" vector-effect="non-scaling-stroke"/><circle cx="${last[0]}" cy="${last[1]}" r="2.5" fill="${col}"/></svg>`;
+}
+
+function stockCard(role, label, name, slot){
+  const roleCls = role === "pick" ? " pick" : "";
+  if (!name) return `<div class="card empty"><span class="role">${label}</span><span class="note">이번 재료는 특정 상장사와 바로 이어지지 않아 정석 종목이 없어요. 대신 코스피와 비교해요.</span></div>`;
+  if (!slot || slot.status === "loading") return `<div class="card${roleCls}"><span class="role">${label}</span><h3>${esc(name)}</h3><span class="note">시세 불러오는 중…</span></div>`;
+  if (slot.status === "error") return `<div class="card${roleCls}"><span class="role">${label}</span><h3>${esc(name)}</h3><span class="note">${esc(errCopy(slot.error))}</span></div>`;
+  const s = slot.data, dl = s.daily || [];
+  if (dl.length < 2) return `<div class="card${roleCls}"><span class="role">${label}</span><h3>${esc(s.name)}</h3><span class="note">최근 시세가 없어요.</span></div>`;
+  const last = dl[dl.length-1], prev = dl[dl.length-2];
+  const diff = last.c - prev.c, rate = diff/prev.c;
+  const yrRate = last.c/dl[0].c - 1;
+  const dt = `${last.d.slice(0,4)}.${last.d.slice(4,6)}.${last.d.slice(6)}`;
+  return `<div class="card${roleCls}"><span class="role">${label}</span><h3>${esc(s.name)}</h3><span class="code">${esc(s.code)}${s.market?" · "+esc(s.market):""} · ${dt} 기준</span>
+    <div class="price">${won(last.c)}<small style="font-size:14px">원</small></div>
+    <div class="chg ${cls(rate)}">${arrow(rate)} ${won(Math.abs(diff))} (${pct(rate)}) 전일 대비</div>
+    ${sparkSVG(dl)}
+    <span class="note">최근 1년 <span class="${cls(yrRate)}">${pct(yrRate)}</span></span></div>`;
+}
+
+function renderMarket(r){
+  const slots = ["origin","pick","index"].map(k=>market[k]).filter(Boolean);
+  const allErr = slots.length && slots.every(s => s.status === "error") && slots.some(s => s.error?.code !== "not_found");
+  $("#market").innerHTML = `<div class="shead"><strong>실제 시세와 그때 샀더라면</strong><span>네이버 금융 데이터</span></div><div class="sbody">
+    ${allErr ? `<div class="notice"><strong>${esc(errCopy(slots[0].error))}</strong><button class="ghost primary" type="button" id="retrym">다시 불러오기</button></div>` : ""}
+    <div class="cards">
+      ${stockCard("origin","정석대로 샀다면", r.origin, market.origin)}
+      ${stockCard("pick","연상매매로 샀다면", r.pick, market.pick)}
+    </div>
+    <div id="bt"></div>
+  </div>`;
+  if (allErr) $("#retrym").addEventListener("click", () => loadMarket(current, null));
+  renderBacktest();
+}
+// ===== 그때 샀더라면 =====
+function startKey(y){ const d = new Date(); d.setFullYear(d.getFullYear()-y); return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,"0")}`; }
+
+function runBT(monthly, y){
+  if (!monthly || monthly.length < 2) return null;
+  const sk = startKey(y);
+  const i = monthly.findIndex(m => m.d.slice(0,6) >= sk);
+  if (i < 0 || i >= monthly.length-1) return null;
+  const pts = monthly.slice(i);
+  const buy = pts[0].c, now = pts[pts.length-1].c;
+  return {pts, buy, now, ret: now/buy - 1, late: pts[0].d.slice(0,6) > sk};
+}
+
+function summaryForCopy(){
+  const p = market.pick?.status === "ok" ? runBT(market.pick.data.monthly, years) : null;
+  return p ? `\n${years}년 전에 ${current.pick} 샀으면 ${pct(p.ret)}` : "";
+}
+
+function renderBacktest(){
+  const box = $("#bt"); if (!box) return;
+  const rows = [];
+  if (market.origin?.status === "ok") rows.push({key:"origin", label:market.origin.data.name+" (정석)", color:"var(--down)", bt:runBT(market.origin.data.monthly, years)});
+  if (market.pick?.status === "ok") rows.push({key:"pick", label:market.pick.data.name+" (연상)", color:"var(--up)", bt:runBT(market.pick.data.monthly, years)});
+  if (market.index?.status === "ok") rows.push({key:"index", label:"코스피 (그냥 시장)", color:"var(--flat)", dash:true, bt:runBT(market.index.data.monthly, years)});
+  const loading = ["origin","pick","index"].some(k => market[k]?.status === "loading");
+  const ok = rows.filter(r => r.bt);
+  const ctrl = `<div class="controls">
+      <span style="font-weight:700">그때 샀더라면</span>
+      <div class="seg" role="group" aria-label="기간">${[1,3,5].map(y=>`<button type="button" data-y="${y}" aria-pressed="${y===years}">${y}년 전</button>`).join("")}</div>
+      <label class="amt" for="amt">투자금 <input type="number" id="amt" min="1" max="100000" step="10" value="${amount}">만원</label>
+    </div>`;
+  if (!ok.length) {
+    box.innerHTML = ctrl + `<p class="fine">${loading ? "수익률 계산할 시세를 모으는 중이에요…" : "계산할 수 있는 시세가 없어요."}</p>`;
+    bindCtrl(); return;
+  }
+  const money = amount * 10000;
+  const tr = ok.map(r => {
+    const b = r.bt; const val = money * (1 + b.ret);
+    const start = `${b.pts[0].d.slice(0,4)}.${b.pts[0].d.slice(4,6)}`;
+    return `<tr><td><span class="sw" style="background:${r.color}"></span>${esc(r.label)}</td><td>${start}${b.late?"*":""}</td><td>${won(b.buy)}</td><td>${won(b.now)}</td><td class="big ${cls(b.ret)}">${pct(b.ret)}</td><td class="${cls(b.ret)}">${won(val)}원</td></tr>`;
+  }).join("");
+  const late = ok.some(r => r.bt.late);
+  box.innerHTML = ctrl + punchline(ok) + `
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>종목</th><th>매수 시점</th><th>그때 가격</th><th>지금 가격</th><th>수익률</th><th>${won(money)}원이 지금은</th></tr></thead>
+      <tbody>${tr}</tbody></table></div>
+    ${chartSVG(ok)}
+    <p class="fine">월 첫 거래일 종가에 사서 지금까지 들고 있었다고 가정. 배당·수수료·세금 제외.${late ? " * 그 시점엔 상장 전이라 상장 직후부터 계산." : ""}${loading ? " 나머지 시세는 아직 불러오는 중이에요." : ""}</p>`;
+  bindCtrl();
+}
+
+function punchline(ok){
+  const p = ok.find(r => r.key === "pick"), o = ok.find(r => r.key === "origin") || ok.find(r => r.key === "index");
+  if (!p) return "";
+  if (!o) return `<p class="punch">${years}년 전에 연상매매를 믿었다면 <span class="${cls(p.bt.ret)}">${pct(p.bt.ret)}</span>.</p>`;
+  const gap = (p.bt.ret - o.bt.ret) * 100;
+  const vs = o.key === "origin" ? `${esc(market.origin.data.name)} 대신 ${esc(market.pick.data.name)}` : `시장 대신 ${esc(market.pick.data.name)}`;
+  if (gap > 0.05) return `<p class="punch">연상매매 승리. ${vs}를 샀으면 <span class="u">+${gap.toFixed(1)}%p</span> 더 벌었습니다. 논리는 틀렸는데 결과는 맞았습니다.</p>`;
+  return `<p class="punch">역시 국장은 예측 불가. ${vs}를 샀으면 <span class="d">${Math.abs(gap).toFixed(1)}%p</span> 덜 벌었습니다. 그래도 웃었으니 됐습니다.</p>`;
+}
+
+function chartSVG(ok){
+  const W=640, H=240, L=44, R=12, T=12, B=26;
+  const months = [...new Set(ok.flatMap(r => r.bt.pts.map(p => p.d.slice(0,6))))].sort();
+  if (months.length < 2) return "";
+  const xi = Object.fromEntries(months.map((m,i)=>[m,i]));
+  const X = i => L + i/(months.length-1)*(W-L-R);
+  const vals = ok.flatMap(r => r.bt.pts.map(p => p.c / r.bt.buy * 100));
+  let mn = Math.min(100, ...vals), mx = Math.max(100, ...vals);
+  const step = niceStep((mx-mn)/4);
+  mn = Math.floor(mn/step)*step; mx = Math.ceil(mx/step)*step;
+  const Y = v => T + (mx - v)/(mx-mn)*(H-T-B);
+  let grid = "";
+  for (let v = mn; v <= mx + 1e-9; v += step) {
+    grid += `<line x1="${L}" x2="${W-R}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)" stroke-width="${v===100?1.5:1}"/><text x="${L-6}" y="${Y(v)+4}" text-anchor="end">${Math.round(v)}</text>`;
+  }
+  const yearsSeen = new Set(); let xl = "";
+  months.forEach((m,i) => { const y = m.slice(0,4); if (m.slice(4)==="01" || i===0) { if (!yearsSeen.has(y)) { yearsSeen.add(y); xl += `<text x="${X(i)}" y="${H-6}" text-anchor="${i===0?"start":"middle"}">${y}</text>`; } } });
+  const lines = ok.map(r => {
+    const d = r.bt.pts.map((p,j) => `${j?"L":"M"}${X(xi[p.d.slice(0,6)]).toFixed(1)} ${Y(p.c/r.bt.buy*100).toFixed(1)}`).join("");
+    const lp = r.bt.pts[r.bt.pts.length-1];
+    return `<path d="${d}" fill="none" stroke="${r.color}" stroke-width="${r.key==="pick"?2.5:1.8}" ${r.dash?'stroke-dasharray="4 4"':""} stroke-linejoin="round"/><circle cx="${X(xi[lp.d.slice(0,6)])}" cy="${Y(lp.c/r.bt.buy*100)}" r="3.5" fill="${r.color}"/>`;
+  }).join("");
+  return `<div class="tbl-wrap"><svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="매수 시점을 100으로 맞춘 가격 추이">${grid}${xl}${lines}</svg></div><p class="fine">매수 시점을 100으로 맞춘 가격 추이. 100보다 위면 이득.</p>`;
+}
+function niceStep(raw){ const p = Math.pow(10, Math.floor(Math.log10(Math.max(raw,1e-6)))); const f = raw/p; return (f<=1?1:f<=2?2:f<=5?5:10)*p; }
+
+function bindCtrl(){
+  document.querySelectorAll(".seg button").forEach(b => b.addEventListener("click", () => { years = Number(b.dataset.y); renderBacktest(); }));
+  const a = $("#amt"); if (a) a.addEventListener("change", () => { const v = Number(a.value); if (v > 0) { amount = Math.min(v, 100000); renderBacktest(); const n=$("#amt"); if(n) n.focus(); } });
+}
+
+// ===== 초기화 =====
+$("#tape").innerHTML = [...TAPE, ...TAPE].map(([n,v,c]) => `<span>${esc(n)} <b class="${c}">${esc(v)}</b></span>`).join("");
+const d = new Date();
+$("#today").textContent = `연상매매 리서치센터 · ${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} 데일리`;
+Object.keys(PRESETS).forEach(k => {
+  const b = document.createElement("button"); b.type="button"; b.className="chip"; b.textContent=k;
+  b.addEventListener("click", () => { $("#q").value = k; run(k, false); });
+  $("#chips").appendChild(b);
+});
+$("#form").addEventListener("submit", e => { e.preventDefault(); run($("#q").value, false); });
+const first = lookup("하림");
+renderReport(first, false);
+loadMarket(first, null);
+})();
+</script>
+</body>
+</html>

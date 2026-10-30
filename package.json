@@ -1,0 +1,13 @@
+{
+  "name": "yeonsang-maemae",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "국장 연상매매: 엉뚱한 연상으로 종목을 추천하고 실제 시세로 수익률을 계산하는 개그 사이트",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node test/stock.test.js"
+  }
+}
